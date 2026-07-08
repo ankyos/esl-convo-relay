@@ -307,9 +307,20 @@ export function linkReviews(session) {
       ...g,
       status: 'reviewing',
       returnedUrl: translator?.translationUrl || null,
+      topicSummaryJa: topicSummaryJa(g.topicId),
     };
   }
   return groups;
+}
+
+function topicSummaryJa(topicId) {
+  const summaries = {
+    toystory: 'トイ・ストーリーについて、好きなキャラクターや映画の話。ウッディやバズの話題が多いよ。',
+    mj: 'マイケル・ジャクソンの映画や音楽について。有名な曲やダンスの話。',
+    kpop: 'K-POPグループやMV、推しメンバー、ダンスやライブの話。',
+    vtuber: 'Vtuberの配信、好きな配信者、スパチャ、なりたい？などの話。',
+  };
+  return summaries[topicId] || '';
 }
 
 export function countGroups(session) {

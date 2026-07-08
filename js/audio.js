@@ -99,7 +99,7 @@ export function hasLiveMic() {
 function attachRecorder(activeStream) {
   chunks = [];
   selectedMime = pickMimeType();
-  const opts = selectedMime ? { mimeType: selectedMime, audioBitsPerSecond: 64000 } : { audioBitsPerSecond: 64000 };
+  const opts = selectedMime ? { mimeType: selectedMime, audioBitsPerSecond: 48000 } : { audioBitsPerSecond: 48000 };
   mediaRecorder = new MediaRecorder(activeStream, opts);
   selectedMime = mediaRecorder.mimeType || selectedMime || (isIOS() ? 'audio/mp4' : 'audio/webm');
 

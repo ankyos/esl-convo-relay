@@ -81,6 +81,18 @@
             "review": {
               ".validate": "!newData.exists() || (newData.isString() && newData.val().matches(/^(good|not_bad|tried_best)$/))"
             },
+            "receivedReview": {
+              ".validate": "!newData.exists() || (newData.isString() && newData.val().matches(/^(good|not_bad|tried_best)$/))"
+            },
+            "receivedReviewFrom": {
+              ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 40)"
+            },
+            "receivedReviewLabel": {
+              ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 64)"
+            },
+            "topicSummaryJa": {
+              ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 512)"
+            },
             "sourceGroup": {
               ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 32)"
             },

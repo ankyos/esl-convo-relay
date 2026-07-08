@@ -9,6 +9,7 @@ export const TOPICS = [
     id: 'toystory',
     emoji: '🤠',
     name: { en: 'Toy Story', ja: 'トイ・ストーリー' },
+    summaryJa: 'トイ・ストーリーについて、好きなキャラクターや映画の話。ウッディやバズの話題が多いよ。',
     scaffold: {
       en: [
         'Hey, did you see the new Toy Story thing?',
@@ -30,6 +31,7 @@ export const TOPICS = [
     id: 'mj',
     emoji: '🎤',
     name: { en: 'Michael Jackson Movie', ja: 'マイケル・ジャクソン映画' },
+    summaryJa: 'マイケル・ジャクソンの映画や音楽について。有名な曲やダンスの話。',
     scaffold: {
       en: [
         'Have you heard about the Michael Jackson movie?',
@@ -51,6 +53,7 @@ export const TOPICS = [
     id: 'kpop',
     emoji: '🎵',
     name: { en: 'K-POP', ja: 'K-POP' },
+    summaryJa: 'K-POPグループやMV、推しメンバー、ダンスやライブの話。',
     scaffold: {
       en: [
         'What K-POP group do you like lately?',
@@ -72,6 +75,7 @@ export const TOPICS = [
     id: 'vtuber',
     emoji: '🎮',
     name: { en: 'V-Tubers', ja: 'Vtuber' },
+    summaryJa: 'Vtuberの配信、好きな配信者、スパチャ、なりたい？などの話。',
     scaffold: {
       en: [
         'Do you watch any V-Tubers?',
@@ -90,6 +94,11 @@ export const TOPICS = [
     },
   },
 ];
+
+export function topicSummaryJa(topicId) {
+  const t = TOPICS.find((x) => x.id === topicId);
+  return t?.summaryJa || '';
+}
 
 export function pickTopic(seed) {
   const idx = Math.abs(seed) % TOPICS.length;

@@ -57,6 +57,9 @@ const state = {
   micCheckError: null,
   countdownInterval: null,
   countdownLeft: 0,
+  uploading: false,
+  reviewing: false,
+  translateNotes: '',
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -70,6 +73,12 @@ const phaseDots = $('#phaseDots');
 const ICONS = {
   join: '👥', lobby: '⏳', record: '🎤', send: '📤', translate: '🔄',
   return: '↩️', review: '✅', done: '🎉', wait: '⏸', mic: '🎙',
+};
+
+const REVIEW_LABELS = {
+  good: { emoji: '👍', ja: 'GOOD! バッチリ！' },
+  not_bad: { emoji: '👌', ja: 'NOT BAD! まあまあ！' },
+  tried_best: { emoji: '💪', ja: 'BEST TRY! がんばった！' },
 };
 
 /* ── Wake Lock ── */
@@ -147,6 +156,45 @@ function render(html) {
   bindEvents();
 }
 
+function updateTimerUI() {
+  const timeEl = document.querySelector('.timer-text .time');
+  const progEl = document.querySelector('.timer-ring .progress');
+  if (!timeEl) return false;
+  const pct = timerProgress(state.elapsed, RECORD_SECONDS);
+  timeEl.textContent = formatTime(RECORD_SECONDS - state.elapsed);
+  if (progEl) {
+    progEl.setAttribute('stroke-dasharray', String(pct.circ));
+    progEl.setAttribute('stroke-dashoffset', String(pct.offset));
+  }
+  return true;
+}
+
+function updateCountdownUI() {
+  const el = document.getElementById('countdownNum');
+  if (!el) return false;
+  const left = state.countdownLeft;
+  el.textContent = left > 0 ? String(left) : 'SEND!';
+  el.className = left > 0 ? 'countdown-display' : 'countdown-display go';
+  return true;
+}
+
+function hintSummaryHtml(group) {
+  if (!group.topicSummaryJa) return '';
+  return `<details class="hint-details">
+    <summary>💡 内容ヒント · Topic hint（タップ）</summary>
+    <div class="hint-body">${group.topicSummaryJa}</div>
+  </details>`;
+}
+
+function translateStepsHtml() {
+  return `<ol class="step-list">
+    <li><span class="step-num">1</span><span>👂 <strong>聞く</strong> · Listen to the recording</span></li>
+    <li><span class="step-num">2</span><span>📝 <strong>メモ</strong> · Write down what you hear</span></li>
+    <li><span class="step-num">3</span><span>🎤 <strong>録音</strong> · Record your translation</span></li>
+    <li><span class="step-num">4</span><span>↩ <strong>返却</strong> · Return to the other group</span></li>
+  </ol>`;
+}
+
 function bindEvents() {
   screen.querySelector('[data-action="create"]')?.addEventListener('click', onCreateSession);
   screen.querySelector('[data-action="join"]')?.addEventListener('click', onJoinSession);
@@ -159,6 +207,9 @@ function bindEvents() {
   screen.querySelector('[data-action="return"]')?.addEventListener('click', onReturn);
   screen.querySelectorAll('[data-action="review"]').forEach((btn) => {
     btn.addEventListener('click', () => onReview(btn.dataset.review));
+  });
+  screen.querySelector('#translateNotes')?.addEventListener('input', (e) => {
+    state.translateNotes = e.target.value;
   });
 }
 
@@ -331,7 +382,7 @@ function renderCountdown(session) {
   const cls = left > 0 ? 'countdown-display' : 'countdown-display go';
   render(`
     <div class="screen-inner">
-      <div class="${cls}">${text}</div>
+      <div class="${cls}" id="countdownNum">${text}</div>
       <p class="screen-sub">
         ${left > 0 ? '送信まで… · Get ready to SEND' : '📤 今すぐ送信！ SEND NOW!'}
       </p>
@@ -393,7 +444,7 @@ function renderRecordPhase(session, group) {
         </div>
       </div>
       ${state.recording ? '<div class="rec-indicator"><span class="rec-dot"></span> REC</div>' : ''}
-      <button class="btn btn-record ${state.recording ? 'recording' : ''}" data-action="record">
+      <button class="btn btn-record ${state.recording ? 'recording' : ''}" data-action="record" ${state.uploading ? 'disabled' : ''}>
         ${state.recording ? '⏹' : '🎤'}
       </button>
       <p class="text-sm">2分間、友達と話そう · Chat casually for 2 minutes</p>
@@ -414,12 +465,20 @@ function renderSentWaiting() {
   requestWakeLock();
 }
 
-function renderReturnedWaiting() {
+function renderReturnedWaiting(group) {
+  const earlyFeedback = group?.receivedReview ? `
+    <div class="feedback-card">
+      <div class="feedback-emoji">${REVIEW_LABELS[group.receivedReview]?.emoji || '💬'}</div>
+      <strong>${group.receivedReviewLabel || ''}</strong>
+      <p class="feedback-from">👥 ${group.receivedReviewFrom || 'Partner'} から届いた！</p>
+    </div>
+  ` : '';
   render(`
     <div class="screen-inner">
       <div class="phase-icon">${ICONS.return}</div>
       <h2 class="screen-title">返却完了 · Returned!</h2>
       <p class="screen-sub">確認フェーズまで待機…</p>
+      ${earlyFeedback}
       <div class="wait-notice"><strong>⏸ 待機</strong>iPadをスリープさせないで</div>
     </div>
   `);
@@ -466,9 +525,10 @@ function renderTranslate(session, group) {
       <h2 class="screen-title">翻訳 · Translate</h2>
       <p class="screen-sub">
         ${fromLang} → ${translateTo.flag} ${translateTo.text}
-        <span class="jp">辞書OK · 自分で作るのがベスト！</span>
       </p>
+      ${translateStepsHtml()}
       ${group.partnerRecordingUrl ? audioPlayer(group.partnerRecordingUrl) : '<p class="text-sm">相手の録音を読み込み中…</p>'}
+      <textarea class="notes-field" id="translateNotes" placeholder="ここにメモ · Write notes here">${state.translateNotes || ''}</textarea>
       <div class="sep"></div>
       <div class="timer-ring">
         <svg viewBox="0 0 120 120">
@@ -482,10 +542,10 @@ function renderTranslate(session, group) {
         </div>
       </div>
       ${state.recording ? '<div class="rec-indicator"><span class="rec-dot"></span> REC</div>' : ''}
-      <button class="btn btn-record ${state.recording ? 'recording' : ''}" data-action="record">
+      <button class="btn btn-record ${state.recording ? 'recording' : ''}" data-action="record" ${state.uploading ? 'disabled' : ''}>
         ${state.recording ? '⏹' : '🎤'}
       </button>
-      <p class="text-sm">翻訳した会話を録音 · Record your translation</p>
+      <p class="text-sm">Step 3 → 翻訳を録音 · Record your translation</p>
     </div>
   `);
   requestWakeLock();
@@ -496,9 +556,9 @@ function renderWaitReturn(session, group) {
     <div class="screen-inner">
       <div class="phase-icon">${ICONS.return}</div>
       <h2 class="screen-title">返却 · Return</h2>
-      <p class="screen-sub">翻訳録音完了！<span class="jp">Hit RETURN when ready</span></p>
+      <p class="screen-sub">Step 4 · 確認して返却<span class="jp">Check, then RETURN</span></p>
       ${audioPlayer(group.translationUrl)}
-      <div class="wait-notice"><strong>⏸ 確認してから返却</strong>再生 → ↩ RETURN</div>
+      <div class="wait-notice"><strong>↩ Step 4</strong>再生して確認 → RETURN ボタン</div>
       <button class="btn btn-return" data-action="return">
         <span class="icon">↩️</span> 返却 RETURN
       </button>
@@ -519,12 +579,13 @@ function renderReview(session, group) {
           : '日本語は合ってる？<span class="jp">Does the Japanese match?</span>'}
       </p>
       ${group.returnedUrl ? audioPlayer(group.returnedUrl) : '<p class="text-sm">返却を待っています…</p>'}
+      ${group.returnedUrl ? hintSummaryHtml(group) : ''}
       ${group.returnedUrl ? `
         <div class="sep"></div>
         <div class="btn-row">
-          <button class="btn btn-good" data-action="review" data-review="good"><span class="icon">👍</span> GOOD!</button>
-          <button class="btn btn-ok" data-action="review" data-review="not_bad"><span class="icon">👌</span> NOT BAD!</button>
-          <button class="btn btn-best" data-action="review" data-review="tried_best"><span class="icon">💪</span> BEST TRY!</button>
+          <button class="btn btn-good" data-action="review" data-review="good" ${state.reviewing ? 'disabled' : ''}><span class="icon">👍</span> GOOD!</button>
+          <button class="btn btn-ok" data-action="review" data-review="not_bad" ${state.reviewing ? 'disabled' : ''}><span class="icon">👌</span> NOT BAD!</button>
+          <button class="btn btn-best" data-action="review" data-review="tried_best" ${state.reviewing ? 'disabled' : ''}><span class="icon">💪</span> BEST TRY!</button>
         </div>
       ` : ''}
     </div>
@@ -534,12 +595,21 @@ function renderReview(session, group) {
 function renderDone(group) {
   releaseWakeLock();
   releaseMic();
-  const emoji = group.review === 'good' ? '👍' : group.review === 'not_bad' ? '👌' : '💪';
+  const ownReview = group.review ? REVIEW_LABELS[group.review] : null;
+  const emoji = ownReview?.emoji || (group.receivedReview ? REVIEW_LABELS[group.receivedReview]?.emoji : '🎉');
+  const feedbackBlock = group.receivedReview ? `
+    <div class="feedback-card">
+      <div class="feedback-emoji">${REVIEW_LABELS[group.receivedReview]?.emoji || '💬'}</div>
+      <strong>${group.receivedReviewLabel || REVIEW_LABELS[group.receivedReview]?.ja || ''}</strong>
+      <p class="feedback-from">👥 ${group.receivedReviewFrom || 'Partner'} からの評価</p>
+    </div>
+  ` : '';
   render(`
     <div class="screen-inner">
       <div class="phase-icon">${ICONS.done}</div>
       <h2 class="screen-title">${emoji} 完了 · Done!</h2>
       <p class="screen-sub">お疲れさま！<span class="jp">Great job today!</span></p>
+      ${feedbackBlock}
     </div>
   `);
 }
@@ -582,11 +652,11 @@ function renderCurrentView() {
       if (group.status === 'sent') return renderSentWaiting();
       return renderWaitSend(session, group);
     case PHASES.TRANSLATE:
-      if (group.status === 'returned') return renderReturnedWaiting();
+      if (group.status === 'returned') return renderReturnedWaiting(group);
       if (group.status === 'ready_to_return') return renderWaitReturn(session, group);
       return renderTranslate(session, group);
     case PHASES.RETURN:
-      if (group.status === 'returned') return renderReturnedWaiting();
+      if (group.status === 'returned') return renderReturnedWaiting(group);
       if (group.status === 'ready_to_return') return renderWaitReturn(session, group);
       return renderTranslate(session, group);
     case PHASES.REVIEW:
@@ -613,11 +683,15 @@ function syncCountdown(session) {
 
   const tick = () => {
     const left = Math.ceil((session.countdownUntil - Date.now()) / 1000);
+    const prev = state.countdownLeft;
     state.countdownLeft = Math.max(0, left);
     if (left <= 0) {
       clearCountdownInterval();
       if (state.mode === 'teacher') advanceCountdownToSend();
+      renderCurrentView();
+      return;
     }
+    if (updateCountdownUI() && prev !== state.countdownLeft) return;
     renderCurrentView();
   };
 
@@ -646,6 +720,9 @@ function onSessionUpdate(session) {
     // Re-verify mic when entering translate (iOS may drop stream during long wait)
     if (session.phase === PHASES.TRANSLATE && !hasLiveMic()) {
       state.micReady = false;
+    }
+    if (session.phase === PHASES.TRANSLATE) {
+      state.translateNotes = '';
     }
   }
 
@@ -794,6 +871,7 @@ function stopTimer() {
 }
 
 async function onToggleRecord() {
+  if (state.uploading) return;
   if (state.recording) {
     await finishRecording();
     return;
@@ -808,7 +886,9 @@ async function onToggleRecord() {
     await startRecording();
     state.recording = true;
     renderCurrentView();
-    startTimer(() => renderCurrentView(), () => finishRecording());
+    startTimer(() => {
+      if (!updateTimerUI()) renderCurrentView();
+    }, () => finishRecording());
   } catch (err) {
     state.micReady = false;
     alert(micErrorMessage(err));
@@ -817,6 +897,7 @@ async function onToggleRecord() {
 }
 
 async function finishRecording() {
+  if (state.uploading) return;
   if (!state.recording && !isRecording()) return;
   stopTimer();
   state.recording = false;
@@ -831,21 +912,34 @@ async function finishRecording() {
   const phase = state.session?.phase;
   const label = phase === PHASES.TRANSLATE ? 'translation' : 'recording';
 
+  state.uploading = true;
   footerHint.textContent = 'アップロード中… · Uploading…';
+  renderCurrentView();
+
   let url;
   try {
     url = await uploadAudio(state.sessionId, state.groupId, blob, label);
   } catch {
+    state.uploading = false;
     alert('アップロード失敗 — もう一度 · Upload failed — retry');
     renderCurrentView();
     return;
   }
 
-  if (phase === PHASES.RECORD) {
-    await updateGroup(state.sessionId, state.groupId, { recordingUrl: url, status: 'ready_to_send' });
-  } else if (phase === PHASES.TRANSLATE) {
-    await updateGroup(state.sessionId, state.groupId, { translationUrl: url, status: 'ready_to_return' });
+  try {
+    if (phase === PHASES.RECORD) {
+      await updateGroup(state.sessionId, state.groupId, { recordingUrl: url, status: 'ready_to_send' });
+    } else if (phase === PHASES.TRANSLATE) {
+      await updateGroup(state.sessionId, state.groupId, { translationUrl: url, status: 'ready_to_return' });
+    }
+  } catch {
+    state.uploading = false;
+    alert('保存失敗 — もう一度 · Save failed — retry');
+    renderCurrentView();
+    return;
   }
+
+  state.uploading = false;
   renderCurrentView();
 }
 
@@ -859,7 +953,30 @@ async function onReturn() {
 }
 
 async function onReview(review) {
-  await updateGroup(state.sessionId, state.groupId, { status: 'reviewed', review });
+  if (state.reviewing) return;
+  const group = state.session?.groups?.[state.groupId];
+  if (!group || group.status === 'reviewed') return;
+
+  state.reviewing = true;
+  renderCurrentView();
+
+  const label = REVIEW_LABELS[review];
+  try {
+    await updateGroup(state.sessionId, state.groupId, { status: 'reviewed', review });
+
+    // Send grade to the group that translated for us
+    const translatorId = group.targetGroup;
+    if (translatorId) {
+      await updateGroup(state.sessionId, translatorId, {
+        receivedReview: review,
+        receivedReviewFrom: group.name,
+        receivedReviewLabel: `${label.emoji} ${label.ja}`,
+      });
+    }
+  } catch {
+    alert('送信失敗 — もう一度 · Could not save review');
+  }
+  state.reviewing = false;
 }
 
 /* ── Boot ── */

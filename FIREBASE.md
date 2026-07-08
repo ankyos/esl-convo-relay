@@ -88,13 +88,15 @@ Full rules: [`firebase-rules/database.rules.json`](./database.rules.json)
 
 ---
 
-## Free plan limits (Spark)
+## Free plan limits (fine for ~40 students)
 
 | Resource | Free limit | Classroom use |
 |----------|------------|---------------|
-| Realtime Database storage | 1 GB | Many class sessions |
-| Download bandwidth | 10 GB/month | Plenty for ~20 iPads |
-| Per recording | ~1–2 MB in DB | 2-minute audio |
+| Realtime Database storage | 1 GB | ~10 groups × 2 recordings ≈ 30 MB/session |
+| Download bandwidth | 10 GB/month | OK for 40 students if you delete after class |
+| Per recording | ~1 MB in DB | 48 kbps audio, 2 minutes |
+
+**Recommended:** 8–10 groups (4 students per iPad). Delete `sessions` node after each class.
 
 **After class:** delete the `sessions` node in Firebase console → Data tab.
 
