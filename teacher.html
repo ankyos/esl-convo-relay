@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <title>Convo Relay — 会話リレー</title>
+  <title>Convo Relay — Teacher</title>
   <link rel="stylesheet" href="css/style.css?v=3" />
 </head>
 <body>
@@ -17,7 +17,7 @@
         <span class="brand-icon" aria-hidden="true">◎</span>
         <div>
           <h1>Convo Relay</h1>
-          <p class="brand-sub">会話リレー · ESL Activity</p>
+          <p class="brand-sub">Teacher · 先生</p>
         </div>
       </div>
       <div class="session-badge" id="sessionBadge" hidden>
@@ -38,19 +38,11 @@
     </section>
 
     <footer class="frame-footer">
-      <p class="hint" id="footerHint">📱 iPad — Safari を使ってください · Use Safari on iPad</p>
+      <p class="hint" id="footerHint">Teacher · 先生用</p>
     </footer>
   </main>
 
+  <script>window.APP_VIEW = 'teacher';</script>
   <script type="module" src="js/app.js?v=3"></script>
-  <script>
-    window.addEventListener('error', function (e) {
-      var el = document.getElementById('staticFallback');
-      if (el && el.textContent.indexOf('Loading') !== -1) {
-        el.innerHTML = '<div class="phase-icon">⚠</div><h2 class="screen-title">Load Error</h2>' +
-          '<p class="screen-sub">JavaScript failed to load.<br>Try refreshing, or use Safari.</p>';
-      }
-    });
-  </script>
 </body>
 </html>

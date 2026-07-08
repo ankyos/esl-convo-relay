@@ -47,7 +47,14 @@ import {
   linkReviews,
   countGroups,
   allGroupsStatus,
+  allLinkedPairsReady,
+  LANGUAGE_ALL_EN,
+  LANGUAGE_ALL_JA,
+  LANGUAGE_RANDOM,
 } from './session.js';
+
+const APP_VIEW = window.APP_VIEW
+  || (new URLSearchParams(location.search).get('view') === 'teacher' ? 'teacher' : 'student');
 
 /* ── State ── */
 const state = {
@@ -71,6 +78,8 @@ const state = {
   reviewing: false,
   translateNotes: '',
   teacherActivityMode: ACTIVITY_TALK,
+  teacherLanguageMode: LANGUAGE_ALL_EN,
+  teacherAutoSendCountdown: true,
   scriptDraft: null,
   scriptSubmitting: false,
 };
@@ -205,10 +214,48 @@ function modePickerHtml() {
   const talk = state.teacherActivityMode === ACTIVITY_TALK ? 'active' : '';
   const script = state.teacherActivityMode === ACTIVITY_SCRIPT ? 'active' : '';
   return `<div class="mode-picker">
-    <button type="button" class="mode-btn ${talk}" data-action="pick-mode" data-mode="${ACTIVITY_TALK}">🎤 自由会話 Free Talk</button>
-    <button type="button" class="mode-btn ${script}" data-action="pick-mode" data-mode="${ACTIVITY_SCRIPT}">📝 脚本 Script</button>
+    <button type="button" class="mode-btn ${talk}" data-action="pick-mode" data-mode="${ACTIVITY_TALK}">自由会話 · Free Talk</button>
+    <button type="button" class="mode-btn ${script}" data-action="pick-mode" data-mode="${ACTIVITY_SCRIPT}">脚本 · Script</button>
   </div>
-  <p class="text-sm">${state.teacherActivityMode === ACTIVITY_SCRIPT ? '4人脚本 → 録音 → リレー' : '自由会話 → リレー'}</p>`;
+  <p class="text-sm">${state.teacherActivityMode === ACTIVITY_SCRIPT ? '4-person script → record → relay' : 'Free talk → relay'}</p>`;
+}
+
+function languageModeValue(session) {
+  return session?.languageMode || state.teacherLanguageMode || LANGUAGE_ALL_EN;
+}
+
+function autoSendValue(session) {
+  if (session && session.autoSendCountdown === false) return false;
+  if (session && session.autoSendCountdown === true) return true;
+  return state.teacherAutoSendCountdown !== false;
+}
+
+function languagePickerHtml(session, locked = false) {
+  const mode = languageModeValue(session);
+  const opts = [
+    { id: LANGUAGE_ALL_EN, label: 'All English' },
+    { id: LANGUAGE_ALL_JA, label: 'All Japanese' },
+    { id: LANGUAGE_RANDOM, label: 'Mixed' },
+  ];
+  return `<div class="option-block">
+    <div class="option-label">Record language · 録音言語</div>
+    <div class="lang-picker">
+      ${opts.map((o) => `<button type="button" class="mode-btn ${mode === o.id ? 'active' : ''}" data-action="pick-language" data-language="${o.id}" ${locked ? 'disabled' : ''}>${o.label}</button>`).join('')}
+    </div>
+    <p class="text-sm">Translate partner audio into the other language</p>
+  </div>`;
+}
+
+function autoSendToggleHtml(session) {
+  const on = autoSendValue(session);
+  return `<label class="toggle-row">
+    <input type="checkbox" data-action="toggle-auto-send" ${on ? 'checked' : ''} />
+    <span>Auto 3…2…1 when linked pairs finish recording</span>
+  </label>`;
+}
+
+function teacherOptionsHtml(session = null, { locked = false } = {}) {
+  return `${modePickerHtml()}${languagePickerHtml(session, locked)}${autoSendToggleHtml(session)}`;
 }
 
 function countScriptReady(session) {
@@ -283,6 +330,10 @@ function bindEvents() {
   screen.querySelectorAll('[data-action="pick-mode"]').forEach((btn) => {
     btn.addEventListener('click', () => { state.teacherActivityMode = btn.dataset.mode; renderCurrentView(); });
   });
+  screen.querySelectorAll('[data-action="pick-language"]').forEach((btn) => {
+    btn.addEventListener('click', () => onPickLanguage(btn.dataset.language));
+  });
+  screen.querySelector('[data-action="toggle-auto-send"]')?.addEventListener('change', onToggleAutoSend);
   screen.querySelector('[data-action="submit-script"]')?.addEventListener('click', onSubmitScript);
   screen.querySelectorAll('[data-action="download"]').forEach((btn) => {
     btn.addEventListener('click', () => onDownloadRecording(btn.dataset.gid, btn.dataset.kind));
@@ -314,35 +365,32 @@ function needsMicCheck() {
 /* ── Screens ── */
 
 function renderLanding() {
-  const iosNote = isIOS()
-    ? '<p class="text-sm">📱 iPad — Safari を使ってください · Use Safari</p>'
-    : '';
   const recNote = !isRecordingSupported()
-    ? '<div class="setup-notice"><strong>⚠</strong> 録音非対応ブラウザ · Browser does not support recording</div>'
+    ? '<div class="setup-notice"><strong>Recording not supported</strong> in this browser · 録音非対応</div>'
     : '';
 
+  footerHint.textContent = '📱 iPad — Safari を使ってください · Use Safari on iPad';
+
   render(`
-    <div class="screen-inner">
-      <div class="phase-icon">${ICONS.join}</div>
+    <div class="screen-inner landing-screen">
       <h2 class="screen-title">Convo Relay</h2>
       <p class="screen-sub">
         友達と話して、翻訳リレー！
         <span class="jp">Talk with friends, then translate!</span>
       </p>
       ${recNote}
-      <div class="sep"></div>
       <div id="setupNotice" class="setup-notice hidden"></div>
       <div class="field">
-        <label>📋 セッションコード · Session Code</label>
+        <label>セッションコード · Session Code</label>
         <input id="inputCode" type="text" maxlength="6" placeholder="ABC123" autocapitalize="characters" autocomplete="off" />
       </div>
       <div class="field-row">
         <div class="field field-grow">
-          <label>👥 グループ名 · Group</label>
+          <label>グループ名 · Group</label>
           <input id="inputGroup" type="text" placeholder="Team Sakura" autocomplete="off" />
         </div>
         <div class="field field-narrow">
-          <label>🔢 番号 · #</label>
+          <label>番号 · #</label>
           <input id="inputNumbers" type="text" inputmode="numeric" placeholder="6,21,4" autocomplete="off" />
         </div>
       </div>
@@ -351,12 +399,24 @@ function renderLanding() {
           <span class="icon">▶</span> 参加する Join
         </button>
       </div>
-      <div class="sep-thick"></div>
-      <p class="text-sm">先生用 · For teacher</p>
-      <button class="btn" data-action="create">
+      <p class="text-sm text-center"><a href="teacher.html" class="text-link">Teacher → 先生はこちら</a></p>
+    </div>
+  `);
+  checkOnlineNotice();
+}
+
+function renderTeacherHome() {
+  footerHint.textContent = 'Teacher · 先生用';
+  render(`
+    <div class="screen-inner">
+      <h2 class="screen-title">Teacher · 先生</h2>
+      <p class="screen-sub">新しいセッションを作成 · Create a new session</p>
+      <div id="setupNotice" class="setup-notice hidden"></div>
+      ${teacherOptionsHtml()}
+      <button class="btn btn-primary" data-action="create">
         <span class="icon">➕</span> 新しいセッション Create Session
       </button>
-      ${iosNote}
+      <p class="text-sm text-center"><a href="index.html" class="text-link">← Student join · 生徒参加</a></p>
     </div>
   `);
   checkOnlineNotice();
@@ -390,9 +450,9 @@ function renderTeacherLobby(session) {
         </ul>
       </div>
       ${pairingPreview(session)}
-      ${modePickerHtml()}
+      ${teacherOptionsHtml(session, { locked: false })}
       <button class="btn btn-primary" data-action="start" ${groups.length < 2 ? 'disabled' : ''}>
-        <span class="icon">🎬</span> スタート Start (${groups.length}/2+)
+        <span class="icon">▶</span> スタート Start (${groups.length}/2+)
       </button>
       <p class="text-sm">最低2グループ必要 · Need at least 2 groups</p>
       ${teacherRecordingsHtml(session)}
@@ -412,10 +472,18 @@ function renderTeacherDashboard(session) {
       ? `<button class="btn btn-primary" data-action="start-record"><span class="icon">🎤</span> 録音開始 (${ready}/${total})</button>`
       : `<p class="text-sm">📝 脚本作成中 · Scripts ${ready}/${total}</p>`;
   } else if (phase === PHASES.RECORD) {
-    const allReady = allGroupsStatus(session, 'ready_to_send');
-    action = allReady
-      ? `<button class="btn btn-send" data-action="open-send"><span class="icon">📤</span> 3…2…1 送信！</button>`
-      : '<p class="text-sm">🎤 録音中… Waiting for recordings</p>';
+    const pairsReady = allLinkedPairsReady(session);
+    const autoOn = autoSendValue(session);
+    if (autoOn) {
+      action = pairsReady
+        ? '<p class="text-sm">3…2…1 自動開始 · Auto countdown starting…</p>'
+        : '<p class="text-sm">録音中 — ペア完成で自動送信 · Recording — auto-send when pairs finish</p>';
+    } else {
+      action = pairsReady
+        ? `<button class="btn btn-send" data-action="open-send"><span class="icon">▶</span> 3…2…1 送信！</button>`
+        : '<p class="text-sm">録音中… Waiting for recordings</p>';
+    }
+    action += autoSendToggleHtml(session);
   } else if (phase === PHASES.COUNTDOWN) {
     action = `<div class="countdown-display">${state.countdownLeft || '…'}</div>`;
   } else if (phase === PHASES.SEND) {
@@ -774,6 +842,7 @@ function renderCurrentView() {
   const session = state.session;
   if (!session) {
     updatePhaseProgress(null);
+    if (APP_VIEW === 'teacher') return renderTeacherHome();
     return renderLanding();
   }
 
@@ -869,6 +938,11 @@ function onSessionUpdate(session) {
   const prevPhase = state.session?.phase;
   state.session = session;
 
+  if (session.languageMode) state.teacherLanguageMode = session.languageMode;
+  if (session.autoSendCountdown !== undefined) state.teacherAutoSendCountdown = session.autoSendCountdown;
+  if (session.activityMode) state.teacherActivityMode = session.activityMode;
+
+  maybeAutoSendCountdown(session);
   if (state.mode === 'teacher') autoAdvanceTeacher(session);
   syncCountdown(session);
 
@@ -888,6 +962,17 @@ function onSessionUpdate(session) {
   }
 
   renderCurrentView();
+}
+
+async function maybeAutoSendCountdown(session) {
+  if (!session || !state.sessionId) return;
+  if (session.autoSendCountdown === false) return;
+  if (session.phase !== PHASES.RECORD || session.countdownUntil) return;
+  if (!allLinkedPairsReady(session)) return;
+  await updateSession(state.sessionId, {
+    phase: PHASES.COUNTDOWN,
+    countdownUntil: Date.now() + 3000,
+  });
 }
 
 async function autoAdvanceTeacher(session) {
@@ -926,12 +1011,15 @@ async function autoAdvanceTeacher(session) {
 async function onCreateSession() {
   try {
     await unlockAudio();
-    const code = await createSession();
+    const code = await createSession('Teacher', {
+      autoSendCountdown: state.teacherAutoSendCountdown !== false,
+      languageMode: state.teacherLanguageMode || LANGUAGE_ALL_EN,
+    });
     state.mode = 'teacher';
     state.sessionId = code;
     state.unsub?.();
     state.unsub = subscribeSession(code, onSessionUpdate);
-    footerHint.textContent = '先生モード · Teacher mode';
+    footerHint.textContent = 'Teacher · 先生';
   } catch (err) {
     console.error('[ConvoRelay] createSession failed:', err);
     alert('セッション作成失敗 · Could not create session\n\n' +
@@ -971,9 +1059,32 @@ async function onJoinSession() {
 
 async function onTeacherStart() {
   const activityMode = state.teacherActivityMode || ACTIVITY_TALK;
-  const groups = assignGroups(state.session, (seed) => pickTopic(seed), activityMode);
+  const languageMode = languageModeValue(state.session);
+  const groups = assignGroups(state.session, (seed) => pickTopic(seed), activityMode, languageMode);
   const phase = activityMode === ACTIVITY_SCRIPT ? PHASES.SCRIPT : PHASES.RECORD;
-  await updateSession(state.sessionId, { phase, activityMode, groups });
+  await updateSession(state.sessionId, {
+    phase,
+    activityMode,
+    languageMode,
+    groups,
+  });
+}
+
+async function onPickLanguage(mode) {
+  if (![LANGUAGE_ALL_EN, LANGUAGE_ALL_JA, LANGUAGE_RANDOM].includes(mode)) return;
+  state.teacherLanguageMode = mode;
+  if (state.session?.phase === PHASES.LOBBY && state.sessionId) {
+    await updateSession(state.sessionId, { languageMode: mode });
+  }
+  renderCurrentView();
+}
+
+async function onToggleAutoSend(e) {
+  const on = e.target.checked;
+  state.teacherAutoSendCountdown = on;
+  if (state.sessionId) {
+    await updateSession(state.sessionId, { autoSendCountdown: on });
+  }
 }
 
 async function onTeacherStartRecord() {
@@ -1180,12 +1291,18 @@ async function onReview(review) {
 }
 
 /* ── Boot ── */
-renderLanding();
+function boot() {
+  if (APP_VIEW === 'teacher') footerHint.textContent = 'Teacher · 先生用';
+  else footerHint.textContent = '📱 iPad — Safari を使ってください · Use Safari on iPad';
+  renderCurrentView();
+}
+
+boot();
 
 const params = new URLSearchParams(location.search);
 const urlCode = params.get('session');
 const urlGroup = params.get('group');
-if (urlCode) {
+if (APP_VIEW === 'student' && urlCode) {
   requestAnimationFrame(() => {
     document.getElementById('inputCode') && (document.getElementById('inputCode').value = urlCode);
     if (urlGroup) document.getElementById('inputGroup').value = urlGroup;

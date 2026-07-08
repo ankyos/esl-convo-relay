@@ -39,6 +39,12 @@
         "countdownUntil": {
           ".validate": "!newData.exists() || newData.isNumber()"
         },
+        "autoSendCountdown": {
+          ".validate": "!newData.exists() || newData.isBoolean()"
+        },
+        "languageMode": {
+          ".validate": "!newData.exists() || (newData.isString() && newData.val().matches(/^(all_en|all_ja|random)$/))"
+        },
 
         "groups": {
           "$groupId": {

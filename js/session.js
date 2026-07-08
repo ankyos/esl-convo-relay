@@ -47,6 +47,30 @@ const PHASES = {
 export const ACTIVITY_TALK = 'talk';
 export const ACTIVITY_SCRIPT = 'script';
 
+export const LANGUAGE_ALL_EN = 'all_en';
+export const LANGUAGE_ALL_JA = 'all_ja';
+export const LANGUAGE_RANDOM = 'random';
+
+function assignLanguage(seed, languageMode = LANGUAGE_RANDOM) {
+  if (languageMode === LANGUAGE_ALL_EN) return 'en';
+  if (languageMode === LANGUAGE_ALL_JA) return 'ja';
+  return seed % 2 === 0 ? 'ja' : 'en';
+}
+
+/** Each relay link (group → targetGroup) must both be done recording. */
+export function allLinkedPairsReady(session) {
+  const groups = session?.groups || {};
+  const ids = Object.keys(groups);
+  if (!ids.length) return false;
+  return ids.every((gid) => {
+    const g = groups[gid];
+    const partner = groups[g.targetGroup];
+    if (!partner) return false;
+    const ready = (x) => x?.recordingUrl && x.status === 'ready_to_send';
+    return ready(g) && ready(partner);
+  });
+}
+
 /** Ordered steps for progress bar */
 export const PHASE_STEPS = [
   { key: PHASES.LOBBY, icon: '👥', label: 'Join' },
@@ -159,7 +183,7 @@ export async function isOnline() {
   return firebaseReady;
 }
 
-export async function createSession(teacherName = 'Teacher') {
+export async function createSession(teacherName = 'Teacher', options = {}) {
   await initFirebase();
   const code = generateCode();
   const session = {
@@ -167,6 +191,8 @@ export async function createSession(teacherName = 'Teacher') {
     phase: PHASES.LOBBY,
     createdAt: Date.now(),
     teacher: teacherName,
+    autoSendCountdown: options.autoSendCountdown !== false,
+    languageMode: options.languageMode || LANGUAGE_ALL_EN,
   };
 
   if (firebaseReady) {
@@ -264,7 +290,7 @@ export async function uploadAudio(sessionId, groupId, blob, label) {
 /**
  * Assign languages + topics, build round-robin pairing.
  */
-export function assignGroups(session, topicPicker, activityMode = ACTIVITY_TALK) {
+export function assignGroups(session, topicPicker, activityMode = ACTIVITY_TALK, languageMode = LANGUAGE_RANDOM) {
   const ids = Object.keys(session.groups || {}).sort();
   const groups = { ...session.groups };
   const n = ids.length;
@@ -273,7 +299,7 @@ export function assignGroups(session, topicPicker, activityMode = ACTIVITY_TALK)
     const seed = hashCode(session.code + gid);
     const base = {
       ...groups[gid],
-      language: seed % 2 === 0 ? 'ja' : 'en',
+      language: assignLanguage(seed, languageMode),
       topicId: topicPicker(seed).id,
       targetGroup: ids[(i + 1) % n],
       sourceGroup: ids[(i - 1 + n) % n],
@@ -312,12 +338,13 @@ export function linkTranslations(session) {
   for (const gid of Object.keys(groups)) {
     const g = groups[gid];
     const partner = groups[g.sourceGroup];
+    const partnerLang = partner?.language || 'en';
     groups[gid] = {
       ...g,
       status: 'translating',
       partnerRecordingUrl: partner?.recordingUrl || null,
-      partnerLanguage: partner?.language || null,
-      translateTo: g.language === 'ja' ? 'en' : 'ja',
+      partnerLanguage: partnerLang,
+      translateTo: partnerLang === 'ja' ? 'en' : 'ja',
     };
   }
   return groups;
