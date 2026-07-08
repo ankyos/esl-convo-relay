@@ -34,14 +34,7 @@ Join → Lobby → Record (2 min) → Wait → SEND (all at once)
 
 GitHub Pages is static — use **Firebase Realtime Database + Storage** (free tier) to sync sessions across devices.
 
-**The app works without Firebase in demo mode** (single browser, good for testing UI). For a real classroom with multiple iPads, follow **[FIREBASE.md](./FIREBASE.md)** (step-by-step setup).
-
-Quick summary:
-
-1. Create project at [console.firebase.google.com](https://console.firebase.google.com)
-2. Enable **Realtime Database** + **Storage**
-3. Paste rules from [`firebase-rules/`](./firebase-rules/) (see below)
-4. Copy credentials into `js/config.js` and push
+**The app works without Firebase in demo mode** (single browser). For multiple iPads on the **free Spark plan**, follow **[FIREBASE.md](./FIREBASE.md)** — you only need **Realtime Database**, not Storage.
 
 **Database rules** — copy [`firebase-rules/database.rules.json`](./firebase-rules/database.rules.json) into Realtime Database → Rules → Publish:
 
@@ -67,7 +60,7 @@ Quick summary:
 
 > The file in `firebase-rules/` has full field validation — use that, not this shortened snippet.
 
-**Storage rules** — copy [`firebase-rules/storage.rules`](./firebase-rules/storage.rules) into Storage → Rules → Publish.
+**Storage is not required** — skip it on the free plan. Recordings are stored in the Database.
 
 ### 2. Deploy to GitHub Pages
 

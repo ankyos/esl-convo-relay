@@ -68,16 +68,16 @@
               ".validate": "!newData.exists() || (newData.isString() && newData.val().matches(/^(toystory|mj|kpop|vtuber)$/))"
             },
             "recordingUrl": {
-              ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 2048)"
+              ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 3145728 && newData.val().matches(/^(https:\\/\\/|data:audio\\/)/))"
             },
             "translationUrl": {
-              ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 2048)"
+              ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 3145728 && newData.val().matches(/^(https:\\/\\/|data:audio\\/)/))"
             },
             "returnedUrl": {
-              ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 2048)"
+              ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 3145728 && newData.val().matches(/^(https:\\/\\/|data:audio\\/)/))"
             },
             "partnerRecordingUrl": {
-              ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 2048)"
+              ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 3145728 && newData.val().matches(/^(https:\\/\\/|data:audio\\/)/))"
             },
             "review": {
               ".validate": "!newData.exists() || (newData.isString() && newData.val().matches(/^(good|not_bad|tried_best)$/))"

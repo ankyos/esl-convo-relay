@@ -59,7 +59,6 @@ export function phaseStepIndex(phase) {
 export { PHASES };
 
 let db = null;
-let storage = null;
 let firebaseReady = false;
 const listeners = new Set();
 
@@ -88,12 +87,11 @@ async function initFirebase() {
   try {
     const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js');
     const dbMod = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js');
-    const stMod = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js');
 
     const app = initializeApp(firebaseConfig);
     db = dbMod.getDatabase(app);
-    storage = stMod.getStorage(app);
     firebaseReady = true;
+    console.info('[ConvoRelay] Firebase Database ready (Spark plan — audio stored in DB, no Storage needed).');
     return true;
   } catch (err) {
     console.error('[ConvoRelay] Firebase init failed:', err);
@@ -241,15 +239,11 @@ export async function updateGroup(sessionId, groupId, patch) {
 
 export async function uploadAudio(sessionId, groupId, blob, label) {
   await initFirebase();
-  const ext = blob.type?.includes('mp4') || blob.type?.includes('aac') ? 'mp4' : 'webm';
-  if (firebaseReady && storage) {
-    const stMod = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js');
-    const path = `sessions/${sessionId}/${groupId}/${label}-${Date.now()}.${ext}`;
-    const storageRef = stMod.ref(storage, path);
-    await stMod.uploadBytes(storageRef, blob, { contentType: blob.type || `audio/${ext}` });
-    return stMod.getDownloadURL(storageRef);
-  }
-  // Demo: store as data URL in memory
+  // Store audio as base64 data URLs in Realtime Database — works on free Spark plan
+  // (Firebase Storage requires Blaze/billing for new projects)
+  void sessionId;
+  void groupId;
+  void label;
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result);

@@ -2,20 +2,30 @@
 
 One-time setup (~10 min). Firebase's console can be slow — do one step, wait, then the next.
 
+**You only need Realtime Database** — no Storage, no billing upgrade.
+
+---
+
+## Why skip Storage?
+
+Firebase **Storage requires the Blaze plan** (pay-as-you-go) for most new projects, even if you stay within free limits. This app **does not use Storage**. Recordings are saved directly in Realtime Database as audio data — works on the **free Spark plan**.
+
+---
+
 ## 1. Create project
 
 1. Open [console.firebase.google.com](https://console.firebase.google.com)
 2. **Add project** → name it e.g. `convo-relay`
-3. Disable Google Analytics (optional, keeps setup faster) → **Create project**
+3. Disable Google Analytics (optional, faster) → **Create project**
 
 ## 2. Register a web app
 
 1. Project overview → **Web** icon `</>`
 2. App nickname: `convo-relay-web`
 3. **Register app**
-4. Copy the `firebaseConfig` object — you'll paste it into `js/config.js`
+4. Copy the `firebaseConfig` object → paste into `js/config.js`
 
-Example:
+You only need these fields (storageBucket is optional):
 
 ```js
 export const firebaseConfig = {
@@ -23,33 +33,26 @@ export const firebaseConfig = {
   authDomain: 'convo-relay-xxxxx.firebaseapp.com',
   databaseURL: 'https://convo-relay-xxxxx-default-rtdb.firebaseio.com',
   projectId: 'convo-relay-xxxxx',
-  storageBucket: 'convo-relay-xxxxx.firebasestorage.app',
   messagingSenderId: '123456789',
   appId: '1:123456789:web:abc123',
 };
 ```
 
-> Client-side Firebase keys are **not secret** — security comes from these rules, not hiding the key.
+> Client-side Firebase keys are **not secret** — security comes from Database rules.
 
-## 3. Realtime Database
+## 3. Realtime Database (only step you need)
 
 1. Build → **Realtime Database** → **Create Database**
-2. Choose region closest to Japan (e.g. `asia-southeast1` if listed, otherwise `us-central1`)
-3. Start in **locked mode** (not test mode)
-4. Open **Rules** tab → paste contents of [`database.rules.json`](./database.rules.json) → **Publish**
+2. Region: closest to you (e.g. `asia-southeast1` or `us-central1`)
+3. Start in **locked mode**
+4. **Rules** tab → paste all of [`database.rules.json`](./database.rules.json) → **Publish**
 
-Direct link pattern:  
+Direct link:  
 `https://console.firebase.google.com/project/YOUR_PROJECT_ID/database/YOUR_PROJECT_ID-default-rtdb/rules`
 
-## 4. Storage
+## 4. Update your app
 
-1. Build → **Storage** → **Get started**
-2. Start in **production mode**
-3. Open **Rules** tab → paste contents of [`storage.rules`](./storage.rules) → **Publish**
-
-## 5. Update your app
-
-Edit `js/config.js` with your credentials, then:
+Edit `js/config.js`, then push:
 
 ```bash
 git add js/config.js
@@ -59,53 +62,66 @@ git push
 
 Wait ~1 minute for GitHub Pages to redeploy.
 
-## 6. Test
+## 5. Test
 
 1. Open **https://ankyos.github.io/esl-convo-relay/** on two devices (or two browser tabs)
 2. Teacher → **Create Session**
-3. Student tab → enter code + group name → **Join**
-4. Both should see the group appear on the teacher panel
+3. Other tab → enter code + group name → **Join**
+4. Group should appear on teacher panel
+5. Record a short test — playback should work on both devices
 
 ---
 
-## What the rules protect
+## What the Database rules protect
 
 | Rule | What it does |
 |------|----------------|
-| Root denied | Nothing outside `sessions/` is readable/writable |
+| Root denied | Nothing outside `sessions/` |
 | Session ID format | Only 6-character codes like `ABC123` |
-| Session create | Must start in `lobby` phase with valid timestamp |
-| Session update | Cannot change `code` or `createdAt` after creation |
-| Group create | Valid name + `joined` status only |
-| Group update | Cannot rename group after joining |
-| Field validation | Language, topic, review values must match app enums |
-| Unknown fields | Rejected (`$other: false`) |
-| Storage path | Only `sessions/{code}/{group}/recording-*.mp4` etc. |
-| Storage size | Max 15 MB per file |
-| Storage type | Audio only |
+| Session create | Must start in `lobby` with valid timestamp |
+| Session update | Cannot change `code` or `createdAt` |
+| Group join | Valid name, `joined` status only |
+| Audio URLs | Must be `data:audio/...` or `https://`, max ~3 MB each |
+| Unknown fields | Rejected |
 
-## Honest limitation (no login)
+Full rules: [`firebase-rules/database.rules.json`](./database.rules.json)
 
-This app has **no user accounts**. Rules validate **data shape**, but anyone who discovers your database URL could still read active sessions or join with a guessed 6-letter code.
+---
 
-For a high school classroom this is usually fine. To harden further later:
+## Free plan limits (Spark)
 
-- Add **Firebase Anonymous Auth** (one code change)
-- Enable **Firebase App Check** to block non-app clients
-- Short session codes + delete sessions after class in Firebase console
+| Resource | Free limit | Classroom use |
+|----------|------------|---------------|
+| Realtime Database storage | 1 GB | Many class sessions |
+| Download bandwidth | 10 GB/month | Plenty for ~20 iPads |
+| Per recording | ~1–2 MB in DB | 2-minute audio |
 
-## After class — clean up
+**After class:** delete the `sessions` node in Firebase console → Data tab.
 
-Firebase console → Realtime Database → **Data** → delete `sessions` node  
-Storage → delete `sessions/` folder
+---
 
-Or leave them — free tier is generous for occasional classroom use.
+## Optional: Firebase Storage (Blaze plan)
+
+Only if you later upgrade to Blaze (billing account linked — still free at small scale):
+
+1. Upgrade project to Blaze in Firebase console
+2. Enable Storage
+3. Use rules in [`storage.rules`](./storage.rules)
+
+The app currently stores audio in the Database; no code change needed unless you want to optimize for very large deployments.
+
+---
 
 ## Troubleshooting
 
 | Problem | Fix |
 |---------|-----|
-| `Permission denied` on join | Rules not published, or wrong `databaseURL` in config |
-| Upload fails | Check Storage rules published; file must be audio |
-| Console very slow | Use direct rule links above; avoid leaving multiple Firebase tabs open |
+| `Permission denied` | Rules not published, or wrong `databaseURL` in config |
+| `Permission denied` on recording | Re-publish updated rules (audio fields allow `data:audio/`) |
 | Demo mode still showing | `apiKey` still says `YOUR_API_KEY` in config.js |
+| Storage "no access" | **Skip Storage** — you don't need it |
+| Console very slow | One tab at a time; use direct Rules link above |
+
+## Honest limitation (no login)
+
+Anyone with your database URL could read active sessions or guess a 6-letter code. Fine for classroom use; delete `sessions` after class.
