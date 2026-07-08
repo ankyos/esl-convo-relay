@@ -151,7 +151,6 @@ export async function createSession(teacherName = 'Teacher') {
     phase: PHASES.LOBBY,
     createdAt: Date.now(),
     teacher: teacherName,
-    groups: {},
   };
 
   if (firebaseReady) {
@@ -169,14 +168,7 @@ export async function joinSession(code, groupName) {
   const group = {
     name: groupName.trim(),
     joinedAt: Date.now(),
-    language: null,
-    topicId: null,
     status: 'joined',
-    recordingUrl: null,
-    translationUrl: null,
-    review: null,
-    sourceGroup: null,
-    targetGroup: null,
   };
 
   if (firebaseReady) {

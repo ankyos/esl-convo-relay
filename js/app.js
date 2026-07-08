@@ -686,13 +686,21 @@ async function autoAdvanceTeacher(session) {
 /* ── Event handlers ── */
 
 async function onCreateSession() {
-  await unlockAudio();
-  const code = await createSession();
-  state.mode = 'teacher';
-  state.sessionId = code;
-  state.unsub?.();
-  state.unsub = subscribeSession(code, onSessionUpdate);
-  footerHint.textContent = '先生モード · Teacher mode';
+  try {
+    await unlockAudio();
+    const code = await createSession();
+    state.mode = 'teacher';
+    state.sessionId = code;
+    state.unsub?.();
+    state.unsub = subscribeSession(code, onSessionUpdate);
+    footerHint.textContent = '先生モード · Teacher mode';
+  } catch (err) {
+    console.error('[ConvoRelay] createSession failed:', err);
+    alert('セッション作成失敗 · Could not create session\n\n' +
+      (err.message?.includes('PERMISSION') || err.code === 'PERMISSION_DENIED'
+        ? 'Firebase Rules を確認してください · Check Database rules are published'
+        : err.message || 'Unknown error'));
+  }
 }
 
 async function onJoinSession() {
