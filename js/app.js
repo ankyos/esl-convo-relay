@@ -4,6 +4,14 @@
  */
 
 import { TOPICS, pickTopic } from './topics.js';
+import { recordingFilename, downloadDataUrl } from './download.js';
+import {
+  SCRIPT_LINE_COUNT,
+  SCRIPT_SPEAKERS,
+  SCRIPT_PATTERN,
+  escapeHtml,
+  normalizeStudentNumbers,
+} from './script.js';
 import {
   RECORD_SECONDS,
   startRecording,
@@ -23,8 +31,10 @@ import {
 } from './audio.js';
 import {
   PHASES,
-  PHASE_STEPS,
+  phaseStepsFor,
   phaseStepIndex,
+  ACTIVITY_TALK,
+  ACTIVITY_SCRIPT,
   isOnline,
   createSession,
   joinSession,
@@ -60,6 +70,9 @@ const state = {
   uploading: false,
   reviewing: false,
   translateNotes: '',
+  teacherActivityMode: ACTIVITY_TALK,
+  scriptDraft: null,
+  scriptSubmitting: false,
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -107,10 +120,11 @@ function updatePhaseProgress(session) {
     return;
   }
   phaseProgress.hidden = false;
-  const current = phaseStepIndex(session.phase);
-  phaseDots.innerHTML = PHASE_STEPS.map((step, i) => {
+  const steps = phaseStepsFor(session);
+  const current = phaseStepIndex(session.phase, session);
+  phaseDots.innerHTML = steps.map((step, i) => {
     const cls = i < current ? 'done' : i === current ? 'active' : '';
-    const conn = i < PHASE_STEPS.length - 1 ? '<div class="phase-connector"></div>' : '';
+    const conn = i < steps.length - 1 ? '<div class="phase-connector"></div>' : '';
     return `<div class="phase-dot ${cls}">
       <div class="phase-dot-icon">${step.icon}</div>
       <span class="phase-dot-label">${step.label}</span>
@@ -134,6 +148,71 @@ function scaffoldHtml(group, topic) {
     return `<p class="text-sm" style="margin:0">自由に話そう！スキャフォールドなし<br>Casual chat — no script needed</p>`;
   }
   return `<ul class="scaffold-list">${topic.scaffold.en.map((line) => `<li>${line}</li>`).join('')}</ul>`;
+}
+
+function scriptNamesArray(group) {
+  const sn = group?.scriptNames;
+  if (!sn) return [];
+  if (Array.isArray(sn)) return sn.slice(0, SCRIPT_SPEAKERS);
+  return Array.from({ length: SCRIPT_SPEAKERS }, (_, i) => sn[i] || '?');
+}
+
+function scriptLinesArray(group) {
+  const sl = group?.scriptLines;
+  if (!sl) return Array(SCRIPT_LINE_COUNT).fill('');
+  if (Array.isArray(sl)) return sl.slice(0, SCRIPT_LINE_COUNT);
+  return Array.from({ length: SCRIPT_LINE_COUNT }, (_, i) => sl[i] || '');
+}
+
+function scriptCompactHtml(group) {
+  const names = scriptNamesArray(group);
+  const lines = scriptLinesArray(group);
+  if (!lines.some(Boolean)) return '';
+  return `<div class="info-card script-readonly">
+    <div class="info-card-label">📝 あなたの脚本 · Your script</div>
+    ${lines.map((line, i) => {
+      const speaker = names[SCRIPT_PATTERN[i]] || '?';
+      return `<div class="script-read-row"><span class="script-speaker">${escapeHtml(speaker)}</span><span>${escapeHtml(line)}</span></div>`;
+    }).join('')}
+  </div>`;
+}
+
+function teacherRecordingsHtml(session) {
+  const groups = Object.entries(session.groups || {});
+  if (!groups.length) return '';
+  const rows = groups.map(([gid, g]) => {
+    const nums = g.studentNumbers && g.studentNumbers !== '0' ? `#${g.studentNumbers}` : '';
+    const orig = g.recordingUrl
+      ? `<div class="rec-row">${audioPlayer(g.recordingUrl)}
+         <button class="btn btn-sm" data-action="download" data-gid="${gid}" data-kind="original">⬇ Original</button></div>`
+      : '<span class="text-sm">—</span>';
+    const trans = g.translationUrl
+      ? `<div class="rec-row">${audioPlayer(g.translationUrl)}
+         <button class="btn btn-sm" data-action="download" data-gid="${gid}" data-kind="translation">⬇ Translation</button></div>`
+      : '<span class="text-sm">—</span>';
+    return `<li>
+      <div class="rec-group-head"><strong>${escapeHtml(g.name)}</strong> <span class="text-sm">${nums}</span></div>
+      <div class="rec-cols"><div><span class="text-sm">🎤 Talk</span>${orig}</div><div><span class="text-sm">🔄 Trans</span>${trans}</div></div>
+    </li>`;
+  }).join('');
+  return `<div class="info-card teacher-recordings">
+    <div class="info-card-label">📼 録音 · Recordings (download before deleting session)</div>
+    <ul class="recording-list">${rows}</ul>
+  </div>`;
+}
+
+function modePickerHtml() {
+  const talk = state.teacherActivityMode === ACTIVITY_TALK ? 'active' : '';
+  const script = state.teacherActivityMode === ACTIVITY_SCRIPT ? 'active' : '';
+  return `<div class="mode-picker">
+    <button type="button" class="mode-btn ${talk}" data-action="pick-mode" data-mode="${ACTIVITY_TALK}">🎤 自由会話 Free Talk</button>
+    <button type="button" class="mode-btn ${script}" data-action="pick-mode" data-mode="${ACTIVITY_SCRIPT}">📝 脚本 Script</button>
+  </div>
+  <p class="text-sm">${state.teacherActivityMode === ACTIVITY_SCRIPT ? '4人脚本 → 録音 → リレー' : '自由会話 → リレー'}</p>`;
+}
+
+function countScriptReady(session) {
+  return Object.values(session.groups || {}).filter((g) => g.status === 'script_ready').length;
 }
 
 function pairingPreview(session) {
@@ -178,8 +257,8 @@ function updateCountdownUI() {
   return true;
 }
 
-function hintSummaryHtml(group) {
-  if (!group.topicSummaryJa) return '';
+function hintSummaryHtml(group, session) {
+  if (session?.activityMode === ACTIVITY_SCRIPT || !group.topicSummaryJa) return '';
   return `<details class="hint-details">
     <summary>💡 内容ヒント · Topic hint（タップ）</summary>
     <div class="hint-body">${group.topicSummaryJa}</div>
@@ -199,7 +278,22 @@ function bindEvents() {
   screen.querySelector('[data-action="create"]')?.addEventListener('click', onCreateSession);
   screen.querySelector('[data-action="join"]')?.addEventListener('click', onJoinSession);
   screen.querySelector('[data-action="start"]')?.addEventListener('click', onTeacherStart);
+  screen.querySelector('[data-action="start-record"]')?.addEventListener('click', onTeacherStartRecord);
   screen.querySelector('[data-action="open-send"]')?.addEventListener('click', onTeacherOpenSend);
+  screen.querySelectorAll('[data-action="pick-mode"]').forEach((btn) => {
+    btn.addEventListener('click', () => { state.teacherActivityMode = btn.dataset.mode; renderCurrentView(); });
+  });
+  screen.querySelector('[data-action="submit-script"]')?.addEventListener('click', onSubmitScript);
+  screen.querySelectorAll('[data-action="download"]').forEach((btn) => {
+    btn.addEventListener('click', () => onDownloadRecording(btn.dataset.gid, btn.dataset.kind));
+  });
+  screen.querySelectorAll('.script-input').forEach((input) => {
+    input.addEventListener('input', (e) => {
+      const i = Number(e.target.dataset.line);
+      if (!state.scriptDraft) state.scriptDraft = Array(SCRIPT_LINE_COUNT).fill('');
+      state.scriptDraft[i] = e.target.value;
+    });
+  });
   screen.querySelector('[data-action="mic-test"]')?.addEventListener('click', onMicTest);
   screen.querySelector('[data-action="mic-confirm"]')?.addEventListener('click', onMicConfirm);
   screen.querySelector('[data-action="record"]')?.addEventListener('click', onToggleRecord);
@@ -242,9 +336,15 @@ function renderLanding() {
         <label>📋 セッションコード · Session Code</label>
         <input id="inputCode" type="text" maxlength="6" placeholder="ABC123" autocapitalize="characters" autocomplete="off" />
       </div>
-      <div class="field">
-        <label>👥 グループ名 · Group Name</label>
-        <input id="inputGroup" type="text" placeholder="Team Sakura" autocomplete="off" />
+      <div class="field-row">
+        <div class="field field-grow">
+          <label>👥 グループ名 · Group</label>
+          <input id="inputGroup" type="text" placeholder="Team Sakura" autocomplete="off" />
+        </div>
+        <div class="field field-narrow">
+          <label>🔢 番号 · #</label>
+          <input id="inputNumbers" type="text" inputmode="numeric" placeholder="6,21,4" autocomplete="off" />
+        </div>
       </div>
       <div class="btn-row">
         <button class="btn btn-primary" data-action="join">
@@ -286,14 +386,16 @@ function renderTeacherLobby(session) {
         <ul class="group-list">
           ${groups.length === 0
             ? '<li style="color:var(--text-muted)">まだ誰もいません…</li>'
-            : groups.map(([, g]) => `<li><span>${g.name}</span><span class="chip wait">${g.status}</span></li>`).join('')}
+            : groups.map(([, g]) => `<li><span>${escapeHtml(g.name)}</span><span class="chip wait">${g.studentNumbers && g.studentNumbers !== '0' ? `#${g.studentNumbers} · ` : ''}${g.status}</span></li>`).join('')}
         </ul>
       </div>
       ${pairingPreview(session)}
+      ${modePickerHtml()}
       <button class="btn btn-primary" data-action="start" ${groups.length < 2 ? 'disabled' : ''}>
         <span class="icon">🎬</span> スタート Start (${groups.length}/2+)
       </button>
       <p class="text-sm">最低2グループ必要 · Need at least 2 groups</p>
+      ${teacherRecordingsHtml(session)}
     </div>
   `);
 }
@@ -303,7 +405,13 @@ function renderTeacherDashboard(session) {
   const phase = session.phase;
   let action = '';
 
-  if (phase === PHASES.RECORD) {
+  if (phase === PHASES.SCRIPT) {
+    const total = countGroups(session);
+    const ready = countScriptReady(session);
+    action = ready >= total && total > 0
+      ? `<button class="btn btn-primary" data-action="start-record"><span class="icon">🎤</span> 録音開始 (${ready}/${total})</button>`
+      : `<p class="text-sm">📝 脚本作成中 · Scripts ${ready}/${total}</p>`;
+  } else if (phase === PHASES.RECORD) {
     const allReady = allGroupsStatus(session, 'ready_to_send');
     action = allReady
       ? `<button class="btn btn-send" data-action="open-send"><span class="icon">📤</span> 3…2…1 送信！</button>`
@@ -333,8 +441,52 @@ function renderTeacherDashboard(session) {
         </ul>
       </div>
       ${action}
+      ${teacherRecordingsHtml(session)}
     </div>
   `);
+}
+
+function renderScriptWrite(session, group) {
+  const topic = topicById(group.topicId);
+  const names = scriptNamesArray(group);
+  const lines = state.scriptDraft ?? scriptLinesArray(group);
+  state.scriptDraft = lines;
+
+  const rows = lines.map((line, i) => {
+    const speaker = names[SCRIPT_PATTERN[i]] || '?';
+    return `<div class="script-row">
+      <span class="script-speaker">${escapeHtml(speaker)}</span>
+      <input class="script-input" data-line="${i}" type="text" value="${escapeHtml(line)}" placeholder="..." enterkeyhint="${i < lines.length - 1 ? 'next' : 'done'}" />
+    </div>`;
+  }).join('');
+
+  render(`
+    <div class="screen-inner script-screen">
+      <div class="phase-icon">📝</div>
+      <h2 class="screen-title">脚本 · Script</h2>
+      <p class="screen-sub">4人 × 2行 · 交互に話す<span class="jp">4 people, 2 lines each, take turns</span></p>
+      <div class="topic-block info-card topic-compact">
+        <p class="topic-name">${topic.emoji} ${topic.name[group.language] || topic.name.en}</p>
+      </div>
+      <div class="script-scroll">${rows}</div>
+      <button class="btn btn-primary" data-action="submit-script" ${state.scriptSubmitting ? 'disabled' : ''}>
+        <span class="icon">✓</span> 完成 OK
+      </button>
+    </div>
+  `);
+  requestWakeLock();
+}
+
+function renderScriptWaiting() {
+  render(`
+    <div class="screen-inner">
+      <div class="phase-icon">${ICONS.wait}</div>
+      <h2 class="screen-title">完成 · Done!</h2>
+      <p class="screen-sub">脚本送信済み — 先生を待って<span class="jp">Script submitted — wait for teacher</span></p>
+      <div class="wait-notice"><strong>⏸</strong>録音が始まるまで待機</div>
+    </div>
+  `);
+  requestWakeLock();
 }
 
 function renderMicCheck(context) {
@@ -429,8 +581,9 @@ function renderRecordPhase(session, group) {
       <div class="topic-block info-card">
         <div class="info-card-label">${ICONS.topic} トピック · Topic</div>
         <p class="topic-name">${topic.emoji} ${topic.name[group.language]}</p>
-        ${scaffoldHtml(group, topic)}
+        ${session.activityMode === ACTIVITY_SCRIPT ? '' : scaffoldHtml(group, topic)}
       </div>
+      ${session.activityMode === ACTIVITY_SCRIPT ? scriptCompactHtml(group) : ''}
       <div class="sep"></div>
       <div class="timer-ring">
         <svg viewBox="0 0 120 120">
@@ -447,7 +600,9 @@ function renderRecordPhase(session, group) {
       <button class="btn btn-record ${state.recording ? 'recording' : ''}" data-action="record" ${state.uploading ? 'disabled' : ''}>
         ${state.recording ? '⏹' : '🎤'}
       </button>
-      <p class="text-sm">2分間、友達と話そう · Chat casually for 2 minutes</p>
+      <p class="text-sm">${session.activityMode === ACTIVITY_SCRIPT
+        ? '脚本を読んで録音 · Read your script aloud'
+        : '2分間、友達と話そう · Chat casually for 2 minutes'}</p>
     </div>
   `);
   requestWakeLock();
@@ -579,7 +734,7 @@ function renderReview(session, group) {
           : '日本語は合ってる？<span class="jp">Does the Japanese match?</span>'}
       </p>
       ${group.returnedUrl ? audioPlayer(group.returnedUrl) : '<p class="text-sm">返却を待っています…</p>'}
-      ${group.returnedUrl ? hintSummaryHtml(group) : ''}
+      ${group.returnedUrl ? hintSummaryHtml(group, session) : ''}
       ${group.returnedUrl ? `
         <div class="sep"></div>
         <div class="btn-row">
@@ -644,6 +799,9 @@ function renderCurrentView() {
 
   switch (session.phase) {
     case PHASES.LOBBY: return renderStudentLobby(session, group);
+    case PHASES.SCRIPT:
+      if (group.status === 'script_ready') return renderScriptWaiting();
+      return renderScriptWrite(session, group);
     case PHASES.RECORD:
       if (group.status === 'sent') return renderSentWaiting();
       if (group.status === 'ready_to_send' || group.recordingUrl) return renderWaitSend(session, group);
@@ -724,6 +882,9 @@ function onSessionUpdate(session) {
     if (session.phase === PHASES.TRANSLATE) {
       state.translateNotes = '';
     }
+    if (session.phase !== PHASES.SCRIPT) {
+      state.scriptDraft = null;
+    }
   }
 
   renderCurrentView();
@@ -784,12 +945,13 @@ async function onJoinSession() {
   await unlockAudio();
   const code = document.getElementById('inputCode')?.value.trim().toUpperCase();
   const groupName = document.getElementById('inputGroup')?.value.trim();
+  const studentNumbers = normalizeStudentNumbers(document.getElementById('inputNumbers')?.value);
   if (!code || !groupName) {
     alert('コードとグループ名を入力 · Enter code and group name');
     return;
   }
   try {
-    const { sessionId, groupId } = await joinSession(code, groupName);
+    const { sessionId, groupId } = await joinSession(code, groupName, studentNumbers);
     state.mode = 'student';
     state.sessionId = sessionId;
     state.groupId = groupId;
@@ -808,10 +970,48 @@ async function onJoinSession() {
 }
 
 async function onTeacherStart() {
-  await updateSession(state.sessionId, {
-    phase: PHASES.RECORD,
-    groups: assignGroups(state.session, (seed) => pickTopic(seed)),
-  });
+  const activityMode = state.teacherActivityMode || ACTIVITY_TALK;
+  const groups = assignGroups(state.session, (seed) => pickTopic(seed), activityMode);
+  const phase = activityMode === ACTIVITY_SCRIPT ? PHASES.SCRIPT : PHASES.RECORD;
+  await updateSession(state.sessionId, { phase, activityMode, groups });
+}
+
+async function onTeacherStartRecord() {
+  const groups = { ...state.session.groups };
+  for (const gid of Object.keys(groups)) {
+    if (groups[gid].status === 'script_ready') {
+      groups[gid] = { ...groups[gid], status: 'ready_to_record' };
+    }
+  }
+  await updateSession(state.sessionId, { phase: PHASES.RECORD, groups });
+}
+
+async function onSubmitScript() {
+  if (state.scriptSubmitting) return;
+  const lines = state.scriptDraft || [];
+  if (lines.length < SCRIPT_LINE_COUNT || lines.some((l) => !String(l).trim())) {
+    alert('8行すべて入力してください · Fill all 8 lines');
+    return;
+  }
+  state.scriptSubmitting = true;
+  try {
+    await updateGroup(state.sessionId, state.groupId, {
+      scriptLines: lines,
+      status: 'script_ready',
+    });
+    state.scriptDraft = null;
+  } catch {
+    alert('保存失敗 · Save failed');
+  }
+  state.scriptSubmitting = false;
+}
+
+function onDownloadRecording(gid, kind) {
+  const group = state.session?.groups?.[gid];
+  if (!group) return;
+  const url = kind === 'translation' ? group.translationUrl : group.recordingUrl;
+  if (!url) return;
+  downloadDataUrl(url, recordingFilename(group, kind, url));
 }
 
 async function onTeacherOpenSend() {

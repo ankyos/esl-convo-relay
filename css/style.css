@@ -867,6 +867,128 @@ body {
   margin-top: 4px;
 }
 
+/* Join field row */
+.field-row {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+}
+.field-grow { flex: 1; min-width: 0; }
+.field-narrow { width: 110px; flex-shrink: 0; }
+.field-narrow input { font-size: 16px; padding: 14px 10px; }
+
+/* Mode picker (teacher) */
+.mode-picker {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+.mode-btn {
+  flex: 1;
+  min-height: 48px;
+  padding: 10px 8px;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: var(--radius-sm);
+  border: 2px solid var(--metal-edge);
+  background: rgba(0,0,0,0.25);
+  color: var(--text-muted);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.mode-btn.active {
+  border-color: var(--accent-teal-light);
+  color: var(--text);
+  background: rgba(74,158,142,0.15);
+}
+
+/* Script writer */
+.script-screen { gap: 10px !important; }
+.script-scroll {
+  width: 100%;
+  max-height: min(36vh, 280px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.script-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.script-speaker {
+  flex-shrink: 0;
+  width: 56px;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--accent-copper-light);
+  text-align: right;
+}
+.script-input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  font-size: 15px;
+  font-family: var(--font);
+  color: var(--text);
+  background: rgba(0,0,0,0.35);
+  border: 1px solid var(--metal-edge);
+  border-radius: 8px;
+}
+.script-input:focus {
+  outline: none;
+  border-color: var(--accent-teal);
+}
+.topic-compact { padding: 10px 12px !important; }
+.topic-compact .topic-name { margin: 0 !important; font-size: 17px !important; }
+.script-readonly { text-align: left; max-height: 28vh; overflow-y: auto; }
+.script-read-row {
+  display: flex;
+  gap: 8px;
+  padding: 5px 0;
+  font-size: 13px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.script-read-row .script-speaker { width: 48px; }
+
+/* Teacher recordings */
+.teacher-recordings { max-height: 32vh; overflow-y: auto; }
+.recording-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.recording-list > li {
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.recording-list > li:last-child { border-bottom: none; }
+.rec-group-head { margin-bottom: 6px; }
+.rec-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.rec-row { display: flex; flex-direction: column; gap: 6px; }
+.btn-sm {
+  min-height: 40px !important;
+  padding: 8px 12px !important;
+  font-size: 12px !important;
+  width: 100%;
+}
+
+@media (orientation: landscape) {
+  .script-scroll { max-height: min(28vh, 200px); }
+  .field-narrow { width: 96px; }
+  .rec-cols { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 600px) {
+  .rec-cols { grid-template-columns: 1fr; }
+}
+
 /* Utility */
 .hidden { display: none !important; }
 .text-sm { font-size: 13px; color: var(--text-muted); }

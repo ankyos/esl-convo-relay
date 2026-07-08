@@ -25,7 +25,10 @@
           ".validate": "newData.isString() && newData.val() === $sessionId"
         },
         "phase": {
-          ".validate": "newData.isString() && newData.val().matches(/^(lobby|record|countdown|send|translate|return|review|done)$/)"
+          ".validate": "newData.isString() && newData.val().matches(/^(lobby|script|record|countdown|send|translate|return|review|done)$/)"
+        },
+        "activityMode": {
+          ".validate": "!newData.exists() || (newData.isString() && newData.val().matches(/^(talk|script)$/))"
         },
         "createdAt": {
           ".validate": "newData.isNumber()"
@@ -57,6 +60,9 @@
             "name": {
               ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 40"
             },
+            "studentNumbers": {
+              ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 64 && newData.val().matches(/^[0-9,]+$/))"
+            },
             "status": {
               ".validate": "newData.isString() && newData.val().length <= 32"
             },
@@ -64,7 +70,7 @@
               ".validate": "!newData.exists() || (newData.isString() && newData.val().matches(/^(ja|en)$/))"
             },
             "topicId": {
-              ".validate": "!newData.exists() || (newData.isString() && newData.val().matches(/^(toystory|mj|kpop|vtuber)$/))"
+              ".validate": "!newData.exists() || (newData.isString() && newData.val().matches(/^(toystory|mj|kpop|vtuber|anime|fashion|sports|games|food)$/))"
             },
             "recordingUrl": {
               ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 3145728 && newData.val().matches(/^(https:\\/\\/|data:audio\\/)/))"
@@ -92,6 +98,12 @@
             },
             "topicSummaryJa": {
               ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 512)"
+            },
+            "scriptNames": {
+              ".validate": "!newData.exists() || newData.hasChildren()"
+            },
+            "scriptLines": {
+              ".validate": "!newData.exists() || newData.hasChildren()"
             },
             "sourceGroup": {
               ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 32)"

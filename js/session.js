@@ -3,6 +3,9 @@
  * Falls back to in-memory demo mode when Firebase is not configured.
  */
 
+import { generateScriptNames, normalizeStudentNumbers, SCRIPT_SPEAKERS } from './script.js';
+import { topicSummaryJa } from './topics.js';
+
 const DEFAULT_FIREBASE_CONFIG = {
   apiKey: 'YOUR_API_KEY',
   authDomain: 'YOUR_PROJECT.firebaseapp.com',
@@ -31,6 +34,7 @@ async function loadConfig() {
 
 const PHASES = {
   LOBBY: 'lobby',
+  SCRIPT: 'script',
   RECORD: 'record',
   COUNTDOWN: 'countdown',
   SEND: 'send',
@@ -40,9 +44,13 @@ const PHASES = {
   DONE: 'done',
 };
 
-/** Ordered steps for progress bar (countdown grouped with send). */
+export const ACTIVITY_TALK = 'talk';
+export const ACTIVITY_SCRIPT = 'script';
+
+/** Ordered steps for progress bar */
 export const PHASE_STEPS = [
   { key: PHASES.LOBBY, icon: '👥', label: 'Join' },
+  { key: PHASES.SCRIPT, icon: '📝', label: 'Script' },
   { key: PHASES.RECORD, icon: '🎤', label: 'Talk' },
   { key: PHASES.SEND, icon: '📤', label: 'Send' },
   { key: PHASES.TRANSLATE, icon: '🔄', label: 'Translate' },
@@ -51,9 +59,17 @@ export const PHASE_STEPS = [
   { key: PHASES.DONE, icon: '🎉', label: 'Done' },
 ];
 
-export function phaseStepIndex(phase) {
-  if (phase === PHASES.COUNTDOWN) return PHASE_STEPS.findIndex((s) => s.key === PHASES.SEND);
-  return PHASE_STEPS.findIndex((s) => s.key === phase);
+export function phaseStepsFor(session) {
+  if (session?.activityMode === ACTIVITY_SCRIPT) return PHASE_STEPS;
+  return PHASE_STEPS.filter((s) => s.key !== PHASES.SCRIPT);
+}
+
+export function phaseStepIndex(phase, session) {
+  const steps = phaseStepsFor(session);
+  if (phase === PHASES.COUNTDOWN) {
+    return steps.findIndex((s) => s.key === PHASES.SEND);
+  }
+  return steps.findIndex((s) => s.key === phase);
 }
 
 export { PHASES };
@@ -162,13 +178,14 @@ export async function createSession(teacherName = 'Teacher') {
   return code;
 }
 
-export async function joinSession(code, groupName) {
+export async function joinSession(code, groupName, studentNumbers = '') {
   await initFirebase();
   const gid = groupIdFromName(groupName);
   const group = {
     name: groupName.trim(),
     joinedAt: Date.now(),
     status: 'joined',
+    studentNumbers: normalizeStudentNumbers(studentNumbers) || '0',
   };
 
   if (firebaseReady) {
@@ -247,21 +264,32 @@ export async function uploadAudio(sessionId, groupId, blob, label) {
 /**
  * Assign languages + topics, build round-robin pairing.
  */
-export function assignGroups(session, topicPicker) {
+export function assignGroups(session, topicPicker, activityMode = ACTIVITY_TALK) {
   const ids = Object.keys(session.groups || {}).sort();
   const groups = { ...session.groups };
   const n = ids.length;
 
   ids.forEach((gid, i) => {
     const seed = hashCode(session.code + gid);
-    groups[gid] = {
+    const base = {
       ...groups[gid],
       language: seed % 2 === 0 ? 'ja' : 'en',
       topicId: topicPicker(seed).id,
-      status: 'ready_to_record',
       targetGroup: ids[(i + 1) % n],
       sourceGroup: ids[(i - 1 + n) % n],
     };
+    if (activityMode === ACTIVITY_SCRIPT) {
+      groups[gid] = {
+        ...base,
+        status: 'writing_script',
+        scriptNames: generateScriptNames(seed + 7),
+      };
+    } else {
+      groups[gid] = {
+        ...base,
+        status: 'ready_to_record',
+      };
+    }
   });
 
   return groups;
@@ -311,16 +339,6 @@ export function linkReviews(session) {
     };
   }
   return groups;
-}
-
-function topicSummaryJa(topicId) {
-  const summaries = {
-    toystory: 'トイ・ストーリーについて、好きなキャラクターや映画の話。ウッディやバズの話題が多いよ。',
-    mj: 'マイケル・ジャクソンの映画や音楽について。有名な曲やダンスの話。',
-    kpop: 'K-POPグループやMV、推しメンバー、ダンスやライブの話。',
-    vtuber: 'Vtuberの配信、好きな配信者、スパチャ、なりたい？などの話。',
-  };
-  return summaries[topicId] || '';
 }
 
 export function countGroups(session) {

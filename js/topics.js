@@ -93,7 +93,59 @@ export const TOPICS = [
       ],
     },
   },
+  {
+    id: 'anime',
+    emoji: '🎬',
+    name: { en: 'Anime', ja: 'アニメ' },
+    summaryJa: '好きなアニメ、キャラ、最新の話についての会話。',
+    scaffold: {
+      en: ['What anime are you watching?', 'Who is your favorite character?', 'Did you see the latest episode?', 'Would you recommend it?', 'Do you read the manga too?'],
+      ja: ['今見てるアニメは？', '推しキャラは？', '最新話見た？', 'おすすめする？', '漫画も読む？'],
+    },
+  },
+  {
+    id: 'fashion',
+    emoji: '👟',
+    name: { en: 'Fashion', ja: 'ファッション' },
+    summaryJa: '服、靴、コーデ、好きなブランドの話。',
+    scaffold: {
+      en: ['What did you wear today?', 'Do you follow any fashion trends?', 'Where do you like to shop?', 'Sneakers or boots?', 'Who has the best style in class?'],
+      ja: ['今日何着た？', '流行り追ってる？', 'どこで買う？', 'スニーカー派？', 'クラスで一番オシャレな人は？'],
+    },
+  },
+  {
+    id: 'sports',
+    emoji: '⚽',
+    name: { en: 'Sports', ja: 'スポーツ' },
+    summaryJa: '好きなスポーツ、試合、部活、運動の話。',
+    scaffold: {
+      en: ['What sport do you play?', 'Did you watch any games lately?', 'Who is your favorite athlete?', 'Are you on a school team?', 'Do you exercise every day?'],
+      ja: ['何のスポーツやってる？', '最近試合見た？', '好きな選手は？', '部活入ってる？', '毎日運動する？'],
+    },
+  },
+  {
+    id: 'games',
+    emoji: '🕹',
+    name: { en: 'Video Games', ja: 'ゲーム' },
+    summaryJa: '好きなゲーム、マイクラ、フォートナイトなどの話。',
+    scaffold: {
+      en: ['What games do you play lately?', 'Console or mobile?', 'Do you play online with friends?', 'What is your favorite game ever?', 'Did you beat a hard level recently?'],
+      ja: ['最近何のゲーム？', 'スマホ？ゲーム機？', '友達とオンライン？', '一番好きなゲームは？', '最近クリアした？'],
+    },
+  },
+  {
+    id: 'food',
+    emoji: '🍜',
+    name: { en: 'Food', ja: '食べ物' },
+    summaryJa: '好きな食べ物、ラunch、コンビニ、レストランの話。',
+    scaffold: {
+      en: ['What did you eat for lunch?', 'What is your favorite snack?', 'Any good restaurants near school?', 'Sweet or salty?', 'Can you cook anything?'],
+      ja: ['昼ごはん何食べた？', '好きなお菓子は？', '学校の近くでおいしい店ある？', '甘い派？しょっぱい派？', '料理できる？'],
+    },
+  },
 ];
+
+export const TOPIC_IDS = TOPICS.map((t) => t.id).join('|');
 
 export function topicSummaryJa(topicId) {
   const t = TOPICS.find((x) => x.id === topicId);
