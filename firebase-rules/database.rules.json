@@ -1,0 +1,112 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "sessions": {
+      "$sessionId": {
+        ".read": true,
+
+        ".write": "(
+          !data.exists()
+          && $sessionId.matches(/^[A-HJ-NP-Z2-9]{6}$/)
+          && newData.child('code').val() === $sessionId
+          && newData.child('phase').val() === 'lobby'
+          && newData.child('createdAt').isNumber()
+          && newData.child('createdAt').val() <= now
+          && newData.child('groups').exists()
+        ) || (
+          data.exists()
+          && $sessionId.matches(/^[A-HJ-NP-Z2-9]{6}$/)
+          && newData.child('code').val() === data.child('code').val()
+          && newData.child('createdAt').val() === data.child('createdAt').val()
+        )",
+
+        "code": {
+          ".validate": "newData.isString() && newData.val() === $sessionId"
+        },
+        "phase": {
+          ".validate": "newData.isString() && newData.val().matches(/^(lobby|record|countdown|send|translate|return|review|done)$/)"
+        },
+        "createdAt": {
+          ".validate": "newData.isNumber()"
+        },
+        "teacher": {
+          ".validate": "newData.isString() && newData.val().length <= 40"
+        },
+        "countdownUntil": {
+          ".validate": "!newData.exists() || newData.isNumber()"
+        },
+
+        "groups": {
+          "$groupId": {
+            ".write": "(
+              !data.exists()
+              && $groupId.matches(/^[a-z0-9\\-]{1,32}$/)
+              && newData.child('name').isString()
+              && newData.child('name').val().length >= 1
+              && newData.child('name').val().length <= 40
+              && newData.child('joinedAt').isNumber()
+              && newData.child('status').val() === 'joined'
+            ) || (
+              data.exists()
+              && $groupId.matches(/^[a-z0-9\\-]{1,32}$/)
+              && newData.child('name').val() === data.child('name').val()
+              && newData.child('joinedAt').val() === data.child('joinedAt').val()
+            )",
+
+            "name": {
+              ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 40"
+            },
+            "status": {
+              ".validate": "newData.isString() && newData.val().length <= 32"
+            },
+            "language": {
+              ".validate": "!newData.exists() || (newData.isString() && newData.val().matches(/^(ja|en)$/))"
+            },
+            "topicId": {
+              ".validate": "!newData.exists() || (newData.isString() && newData.val().matches(/^(toystory|mj|kpop|vtuber)$/))"
+            },
+            "recordingUrl": {
+              ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 2048)"
+            },
+            "translationUrl": {
+              ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 2048)"
+            },
+            "returnedUrl": {
+              ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 2048)"
+            },
+            "partnerRecordingUrl": {
+              ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 2048)"
+            },
+            "review": {
+              ".validate": "!newData.exists() || (newData.isString() && newData.val().matches(/^(good|not_bad|tried_best)$/))"
+            },
+            "sourceGroup": {
+              ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 32)"
+            },
+            "targetGroup": {
+              ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 32)"
+            },
+            "translateTo": {
+              ".validate": "!newData.exists() || (newData.isString() && newData.val().matches(/^(ja|en)$/))"
+            },
+            "partnerLanguage": {
+              ".validate": "!newData.exists() || (newData.isString() && newData.val().matches(/^(ja|en)$/))"
+            },
+            "joinedAt": {
+              ".validate": "newData.isNumber()"
+            },
+            "$other": {
+              ".validate": false
+            }
+          }
+        },
+
+        "$other": {
+          ".validate": false
+        }
+      }
+    }
+  }
+}

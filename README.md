@@ -34,40 +34,40 @@ Join → Lobby → Record (2 min) → Wait → SEND (all at once)
 
 GitHub Pages is static — use **Firebase Realtime Database + Storage** (free tier) to sync sessions across devices.
 
-**The app works without Firebase in demo mode** (single browser, good for testing UI). You'll see a yellow notice on the join screen. For a real classroom with multiple iPads, set up Firebase:
+**The app works without Firebase in demo mode** (single browser, good for testing UI). For a real classroom with multiple iPads, follow **[FIREBASE.md](./FIREBASE.md)** (step-by-step setup).
 
-1. Create a project at [console.firebase.google.com](https://console.firebase.google.com)
-2. Enable **Realtime Database** (start in test mode for classroom use, or set rules below)
-3. Enable **Storage**
-4. Copy `js/config.example.js` → `js/config.js` and paste your credentials
+Quick summary:
 
-**Database rules** (classroom-safe, open read/write — tighten for production):
+1. Create project at [console.firebase.google.com](https://console.firebase.google.com)
+2. Enable **Realtime Database** + **Storage**
+3. Paste rules from [`firebase-rules/`](./firebase-rules/) (see below)
+4. Copy credentials into `js/config.js` and push
+
+**Database rules** — copy [`firebase-rules/database.rules.json`](./firebase-rules/database.rules.json) into Realtime Database → Rules → Publish:
 
 ```json
 {
   "rules": {
+    ".read": false,
+    ".write": false,
     "sessions": {
       "$sessionId": {
         ".read": true,
-        ".write": true
+        ".write": "(!data.exists() && $sessionId.matches(/^[A-HJ-NP-Z2-9]{6}$/) && newData.child('code').val() === $sessionId) || (data.exists() && newData.child('code').val() === data.child('code').val())",
+        "groups": {
+          "$groupId": {
+            ".write": "(!data.exists() && newData.child('status').val() === 'joined') || data.exists()"
+          }
+        }
       }
     }
   }
 }
 ```
 
-**Storage rules**:
+> The file in `firebase-rules/` has full field validation — use that, not this shortened snippet.
 
-```
-rules_version = '2';
-service firebase.storage {
-  match /b/{bucket}/o {
-    match /sessions/{sessionId}/{allPaths=**} {
-      allow read, write: if true;
-    }
-  }
-}
-```
+**Storage rules** — copy [`firebase-rules/storage.rules`](./firebase-rules/storage.rules) into Storage → Rules → Publish.
 
 ### 2. Deploy to GitHub Pages
 

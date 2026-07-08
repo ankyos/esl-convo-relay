@@ -1,0 +1,23 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Deny everything by default
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+
+    // Audio recordings only — sessions/{CODE}/{group}/{file}.mp4|.webm
+    match /sessions/{sessionId}/{groupId}/{fileName} {
+      allow read: if sessionId.matches('^[A-HJ-NP-Z2-9]{6}$')
+                  && groupId.matches('^[a-z0-9\\-]{1,32}$');
+
+      allow write: if sessionId.matches('^[A-HJ-NP-Z2-9]{6}$')
+                   && groupId.matches('^[a-z0-9\\-]{1,32}$')
+                   && fileName.matches('^(recording|translation)-[0-9]+\\.(mp4|webm)$')
+                   && request.resource.size < 15 * 1024 * 1024
+                   && request.resource.contentType.matches('audio/.*');
+    }
+  }
+}
