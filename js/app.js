@@ -566,10 +566,10 @@ function renderCurrentView() {
   footerHint.textContent = `${group.name} · ${session.phase}`;
 
   if (session.phase === PHASES.COUNTDOWN) {
-    if (group.status === 'ready_to_send' || group.status === 'sent') {
-      if (group.status === 'sent') return renderSentWaiting();
-      return renderCountdown(session);
-    }
+    if (group.status === 'sent') return renderSentWaiting();
+    if (group.status === 'ready_to_send') return renderCountdown(session);
+    if (!group.recordingUrl) return renderRecordPhase(session, group);
+    return renderWaitSend(session, group);
   }
 
   switch (session.phase) {

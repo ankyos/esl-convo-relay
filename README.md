@@ -75,13 +75,13 @@ git init
 git add .
 git commit -m "Add Convo Relay ESL activity"
 git branch -M main
-git remote add origin https://github.com/YOUR_USER/esl-convo-relay.git
+git remote add origin https://github.com/ankyos/esl-convo-relay.git
 git push -u origin main
 ```
 
 In GitHub → **Settings → Pages → Source**: deploy from `main` branch, `/ (root)`.
 
-Your app will be at: `https://YOUR_USER.github.io/esl-convo-relay/`
+Your app will be at: `https://ankyos.github.io/esl-convo-relay/`
 
 ### 3. Classroom use
 
