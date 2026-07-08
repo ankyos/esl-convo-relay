@@ -34,6 +34,8 @@ Join → Lobby → Record (2 min) → Wait → SEND (all at once)
 
 GitHub Pages is static — use **Firebase Realtime Database + Storage** (free tier) to sync sessions across devices.
 
+**The app works without Firebase in demo mode** (single browser, good for testing UI). You'll see a yellow notice on the join screen. For a real classroom with multiple iPads, set up Firebase:
+
 1. Create a project at [console.firebase.google.com](https://console.firebase.google.com)
 2. Enable **Realtime Database** (start in test mode for classroom use, or set rules below)
 3. Enable **Storage**

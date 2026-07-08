@@ -3,7 +3,31 @@
  * Falls back to in-memory demo mode when Firebase is not configured.
  */
 
-import { firebaseConfig } from './config.js';
+const DEFAULT_FIREBASE_CONFIG = {
+  apiKey: 'YOUR_API_KEY',
+  authDomain: 'YOUR_PROJECT.firebaseapp.com',
+  databaseURL: 'https://YOUR_PROJECT-default-rtdb.firebaseio.com',
+  projectId: 'YOUR_PROJECT',
+  storageBucket: 'YOUR_PROJECT.appspot.com',
+  messagingSenderId: '000000000000',
+  appId: '1:000000000000:web:xxxxxxxx',
+};
+
+let firebaseConfig = { ...DEFAULT_FIREBASE_CONFIG };
+let configLoaded = false;
+
+/** Load optional js/config.js override; never throws if file is missing. */
+async function loadConfig() {
+  if (configLoaded) return firebaseConfig;
+  try {
+    const mod = await import('./config.js');
+    if (mod.firebaseConfig) firebaseConfig = mod.firebaseConfig;
+  } catch {
+    // config.js missing on GitHub Pages — demo mode is fine
+  }
+  configLoaded = true;
+  return firebaseConfig;
+}
 
 const PHASES = {
   LOBBY: 'lobby',
@@ -54,6 +78,7 @@ function groupIdFromName(name) {
 }
 
 async function initFirebase() {
+  await loadConfig();
   if (firebaseReady) return firebaseReady;
   if (!firebaseConfig?.apiKey || firebaseConfig.apiKey === 'YOUR_API_KEY') {
     console.info('[ConvoRelay] Firebase not configured — using demo mode (single browser only).');
