@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Convo Relay — 会話リレー</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="metal-bg"></div>
+
+  <main class="frame" id="app">
+    <header class="frame-header">
+      <div class="brand">
+        <span class="brand-icon" aria-hidden="true">◎</span>
+        <div>
+          <h1>Convo Relay</h1>
+          <p class="brand-sub">会話リレー · ESL Activity</p>
+        </div>
+      </div>
+      <div class="session-badge" id="sessionBadge" hidden>
+        <span class="badge-label">SESSION</span>
+        <span class="badge-code" id="sessionCodeDisplay">——</span>
+      </div>
+    </header>
+
+    <nav class="phase-progress" id="phaseProgress" hidden aria-label="Activity progress">
+      <div class="phase-dots" id="phaseDots"></div>
+    </nav>
+
+    <section class="glass-panel" id="screen" aria-live="polite">
+      <!-- Dynamic content rendered by app.js -->
+    </section>
+
+    <footer class="frame-footer">
+      <p class="hint" id="footerHint">グループ名を入力して参加</p>
+    </footer>
+  </main>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
