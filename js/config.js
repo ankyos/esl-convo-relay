@@ -2,10 +2,11 @@
 // Storage is NOT required; recordings are stored in the database.
 
 export const firebaseConfig = {
-  apiKey: 'YOUR_API_KEY',
-  authDomain: 'YOUR_PROJECT.firebaseapp.com',
-  databaseURL: 'https://YOUR_PROJECT-default-rtdb.firebaseio.com',
-  projectId: 'YOUR_PROJECT',
-  messagingSenderId: '000000000000',
-  appId: '1:000000000000:web:xxxxxxxx',
+  apiKey: "AIzaSyAoF9vmJ9huy_0JWMQg50Pxn7cw7JSzWq0",
+  authDomain: "kays-convo-relay.firebaseapp.com",
+  databaseURL:
+    "https://kays-convo-relay-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "kays-convo-relay",
+  messagingSenderId: "619280148303",
+  appId: "1:619280148303:web:511b985409f9888c73073a",
 };
